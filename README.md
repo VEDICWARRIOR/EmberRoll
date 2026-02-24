@@ -1,4 +1,3 @@
-[README (3).md](https://github.com/user-attachments/files/25511276/README.3.md)
 # Thermal Image Generation using Deep Learning 🔥
 
 ## Overview
