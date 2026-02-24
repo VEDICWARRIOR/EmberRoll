@@ -1,0 +1,35 @@
+# Python
+
+**pycache**/ *.pyc *.pyo *.pyd *.so
+
+# Virtual Environment
+
+venv/ env/ .venv/
+
+# Jupyter Notebook
+
+.ipynb_checkpoints/
+
+# Environment Variables
+
+.env
+
+# Logs
+
+\*.log
+
+# OS Files
+
+.DS_Store Thumbs.db
+
+# Model Weights
+
+*.pth *.pt \*.ckpt
+
+# Dataset
+
+data/
+
+# Output Files
+
+outputs/

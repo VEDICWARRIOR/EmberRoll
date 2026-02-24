@@ -1,0 +1,2 @@
+numpy opencv-python matplotlib torch torchvision jupyter pandas
+scikit-learn tqdm
