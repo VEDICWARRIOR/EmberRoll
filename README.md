@@ -1,96 +1,136 @@
-# Thermal Image Generation using Deep Learning 🔥
+# Thermal Fault Detector
 
-## Overview
+A signal analysis tool that detects and visualizes electrical faults in power system recordings using thermal color heatmaps. It processes time-series current (I1) and voltage (V1) data, classifies each timestep into a 6-level thermal severity scale, and produces a **NVA (Normalized Vibrational Activity) score** and a **4-bit binary fault summary**.
 
-This project focuses on generating synthetic thermal images from visible
-spectrum (RGB) inputs using deep learning techniques. The model learns
-cross-spectrum translation and produces realistic thermal
-representations that simulate infrared imaging.
+---
 
-## Problem Statement
+## Features
 
-Thermal imaging sensors are expensive and not always accessible. This
-project explores an AI-driven approach to generate thermal-like images
-from standard RGB inputs, enabling low-cost simulation of infrared
-vision.
+- **Thermal color heatmaps** for current, voltage, and a fused channel
+- **6-level severity scale**: Violet → Blue → Green → Yellow → Orange → Red
+- **Fault-gradient coloring** for current: smooth Yellow→Orange→Red within the fault zone
+- **ROC-only voltage coloring**: marks transition instants only — stable periods (whether at nominal voltage or 0 V) show Violet/Blue
+- **State machine fault tracking** with configurable cooldown to prevent premature fault-exit
+- **NVA score** (0.0 = perfect, 1.0 = total fault) with five named health states
+- **Binary output** `[COLD | NORMAL | WARNING | DANGER]` with human-readable interpretation for all 16 combinations
+- **Auto-detect file loader**: handles `.xlsx`, `.xls`, CSV (comma/semicolon), and TSV
 
-## Objectives
+---
 
--   Perform RGB to thermal image translation
--   Learn cross-domain feature mapping
--   Preserve structural consistency
--   Generate visually realistic thermal outputs
+## Input Format
 
-## Methodology
+The tool expects a spreadsheet or CSV file with **at minimum these three columns**:
 
-1.  Data preprocessing and normalization\
-2.  Model architecture design\
-3.  Training using paired/unpaired datasets\
-4.  Loss optimization (L1 / adversarial / perceptual loss)\
-5.  Output visualization and evaluation
+| Column   | Description              |
+|----------|--------------------------|
+| `simOut` | Time axis (seconds)      |
+| `V1`     | Voltage signal (Volts)   |
+| `I1`     | Current signal (Amperes) |
 
-## Project Structure
+Extra columns are ignored. Set `FILE_PATH` in **Cell 2** to point to your data file.
 
-├── data/ \# Dataset (not included in repo)\
-├── models/ \# Model architecture files\
-├── outputs/ \# Generated thermal images\
-├── EmberRoll.ipynb \# Main training & experimentation notebook\
-├── requirements.txt\
-└── README.md
+---
 
-## Tech Stack
+## Outputs
 
--   Python
--   PyTorch / TensorFlow (Specify which one you used)
--   OpenCV
--   NumPy
--   Matplotlib
+| Output | Description |
+|---|---|
+| Current heatmap | Fault-gradient coloring with ROC spikes |
+| Voltage heatmap | ROC-only coloring, marks onset/offset transitions |
+| Fused heatmap | `max(current_color, voltage_color)` per timestep |
+| Color % breakdown | Time spent at each severity level |
+| NVA score | Weighted scalar health index |
+| Binary string | 4-bit dominant-state summary with interpretation |
 
-## Installation
+---
 
-``` bash
-git clone https://github.com/yourusername/thermal-image-generation.git
-cd thermal-image-generation
-pip install -r requirements.txt
+## Color Scale
+
+| Index | Color  | Meaning |
+|-------|--------|---------|
+| 0     | Violet | Cold / at rest |
+| 1     | Blue   | Very low activity |
+| 2     | Green  | Moderate activity |
+| 3     | Yellow | Elevated / fault entry zone |
+| 4     | Orange | Active fault — lower severity |
+| 5     | Red    | Active fault — peak severity |
+
+---
+
+## NVA Score Scale
+
 ```
+0.00 – 0.20  →  GOOD
+0.20 – 0.40  →  OK
+0.40 – 0.60  →  AVERAGE
+0.60 – 0.80  →  FAULTY
+0.80 – 1.00  →  SEVERE FAULT
+```
+
+---
+
+## Key Parameters
+
+Tunable constants defined at the top of **Cell 1**:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `REST_VALUE` | `120.0` | Idle signal level for both I1 and V1 |
+| `REST_TOL` | `0.5` | Tolerance for rest detection (±V/A) |
+| `FAULT_COOLDOWN` | `50` | Steps below 2× normal required to exit fault state |
+| `HEIGHT` | `30` | Pixel height of heatmap bar |
+
+Thresholds computed automatically from the data:
+
+| Threshold | Description |
+|---|---|
+| `normal_I` | Median of the lower 50th percentile of active (non-rest) current samples |
+| `thr_5x` | Fault entry threshold — `normal_I × 5` |
+| `thr_2x` | Fault exit candidate — `normal_I × 2` |
+| `fault_ceiling` | 99.9th percentile of absolute current (prevents single-spike distortion) |
+
+---
+
+## How It Works
+
+### Current Coloring
+Two zones are handled separately:
+
+- **Normal zone**: color is the higher of ROC-based color and level-based color (Blue/Green/Yellow depending on how many multiples of `normal_I` the current is)
+- **Fault zone** (current > `thr_5x`): color is the higher of ROC spike color and a fault-gradient color. The fault-gradient maps the current's position between `thr_5x` and `fault_ceiling` linearly to Yellow→Orange→Red, producing a natural severity gradient instead of locking the entire fault region to solid Red
+
+A state machine governs fault entry and exit. Once entered, the fault state persists until current stays below `thr_2x` for `FAULT_COOLDOWN` consecutive steps.
+
+### Voltage Coloring
+Voltage uses ROC-only coloring. Rapid transitions (fault onset, recovery) produce Orange/Red spikes; stable periods at any voltage level show Violet/Blue. This prevents a sustained voltage drop from flooding the heatmap with red.
+
+### Fused Heatmap
+At each timestep, the fused color is `max(current_color, voltage_color)`. Current drives the sustained fault color; voltage contributes only at transition moments.
+
+---
 
 ## Usage
 
-Run the Jupyter Notebook:
+1. Open the notebook in **Jupyter** or **Google Colab**.
+2. Set `FILE_PATH` in Cell 2 to your data file path.
+3. Run all cells in order (Cells 1 → 11).
 
-``` bash
-jupyter notebook EmberRoll.ipynb
+```bash
+jupyter notebook ThermalFaultDetector.ipynb
 ```
 
-Or run training script (if converted):
+---
 
-``` bash
-python train.py
+## Requirements
+
+See `requirements.txt`. Install with:
+
+```bash
+pip install -r requirements.txt
 ```
 
-## Results
-
-The model generates thermal-like representations that preserve
-structural information from RGB inputs while simulating infrared heat
-patterns.
-
-(Add sample output images here for better presentation)
-
-## Applications
-
--   Surveillance systems
--   Night vision enhancement
--   Autonomous vehicles
--   Industrial heat monitoring
--   Medical diagnostics research
-
-## Future Improvements
-
--   Improve realism using perceptual and adversarial training
--   Implement diffusion-based enhancement
--   Convert to modular training pipeline
--   Deploy using FastAPI or Streamlit
+---
 
 ## License
-© 2026 VED PATEL. All rights reserved.
-Unauthorized use, reproduction, or distribution is strictly prohibited.
+
+MIT
