@@ -133,4 +133,5 @@ pip install -r requirements.txt
 
 ## License
 
-MIT
+Copyright (c) 2026 VEDICWARRIOR. All Rights Reserved.
+This project is not open source. No permission is granted to use, copy, modify, or distribute this software without explicit written consent from the author. See LICENSE for full terms.
